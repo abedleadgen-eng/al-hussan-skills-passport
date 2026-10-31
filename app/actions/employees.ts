@@ -101,6 +101,20 @@ export async function updateEmployee(id: string, fd: FormData): Promise<ActionRe
   return { ok: true }
 }
 
+export async function updateRole(id: string, roleRaw: string): Promise<ActionResult> {
+  const { profile: actor, supabase } = await requireRole(['super_admin', 'hr_admin'])
+  if (!isUuid(id)) return { ok: false, error: 'Invalid employee' }
+  if (id === actor.id) return { ok: false, error: 'You cannot change your own role' }
+  if (!(ROLES as string[]).includes(roleRaw)) return { ok: false, error: 'Invalid role' }
+  const role = roleRaw as AppRole
+  if (!allowedRole(actor.role, role)) return { ok: false, error: 'You cannot assign this role' }
+  const { error } = await supabase.from('profiles').update({ role }).eq('id', id)
+  if (error) return { ok: false, error: 'You cannot assign this role' }
+  revalidatePath('/settings')
+  revalidatePath('/employees')
+  return { ok: true }
+}
+
 export async function deleteEmployee(id: string): Promise<ActionResult> {
   const { profile: actor } = await requireRole(['super_admin'])
   if (!isUuid(id) || id === actor.id) return { ok: false, error: 'Not allowed' }
